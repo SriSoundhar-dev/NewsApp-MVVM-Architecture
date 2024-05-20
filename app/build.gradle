@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'com.sri.soundhar.mynewsapplication'
+    namespace 'com.sri.soundhar.newsapp_mvvm_architecture'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.sri.soundhar.mynewsapplication"
+        applicationId "com.sri.soundhar.newsapp_mvvm_architecture"
         minSdk 24
         targetSdk 34
         versionCode 1
