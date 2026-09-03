@@ -16,6 +16,11 @@ It uses [Room Persistence Library](https://developer.android.com/topic/libraries
 App first loads the data from DB and then checks for fresh data from API, API is only called if DB data is empty or expired
 The main aim of this sample app is show how to use the new [Architecture Guidelines](https://developer.android.com/topic/libraries/architecture/index.html) with Kotlin.
 
+## Requirements
+- **JDK 17 or newer** (the build uses Kotlin 1.9.x / Android Gradle Plugin 8.3). Android Studio's bundled JDK works; if you build from the command line, point `JAVA_HOME` at a JDK 17+ install, e.g.
+  `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`
+- Android SDK Platform 34 (`compileSdk` / `targetSdk` 34)
+
 ## If you want to run:
 - Go to [NewsAPI](https://newsapi.org/) and generate an API key (It's only 2 steps!)
 - Put the API key at the bottom of the `gradle.properties`
