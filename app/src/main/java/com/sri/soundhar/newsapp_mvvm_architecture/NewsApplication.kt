@@ -6,7 +6,7 @@ import com.sri.soundhar.newsapp_mvvm_architecture.di.component.DaggerApplication
 import com.sri.soundhar.newsapp_mvvm_architecture.di.module.ApplicationModule
 
 
-class NewsApplication : Application() {
+open class NewsApplication : Application() {
 
     lateinit var applicationComponent: ApplicationComponent
 
@@ -15,11 +15,18 @@ class NewsApplication : Application() {
         injectDependencies()
     }
 
-    private fun injectDependencies() {
-        applicationComponent = DaggerApplicationComponent
+    /**
+     * Builds the graph the app runs on. Instrumentation tests override this to swap in a
+     * component pointed at a local MockWebServer instead of newsapi.org.
+     */
+    protected open fun buildApplicationComponent(): ApplicationComponent =
+        DaggerApplicationComponent
             .builder()
             .applicationModule(ApplicationModule(this))
             .build()
+
+    private fun injectDependencies() {
+        applicationComponent = buildApplicationComponent()
         applicationComponent.inject(this)
     }
 }
