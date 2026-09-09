@@ -15,10 +15,17 @@ android {
         versionCode 1
         versionName "1.0"
 
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner "com.sri.soundhar.newsapp_mvvm_architecture.NewsTestRunner"
         vectorDrawables {
             useSupportLibrary true
         }
+    }
+
+    sourceSets {
+        // Fixtures shared by the JVM and instrumentation suites, so TestDataFactory is
+        // written once rather than duplicated per source set.
+        test.java.srcDirs += 'src/sharedTest/java'
+        androidTest.java.srcDirs += 'src/sharedTest/java'
     }
 
     buildTypes {
@@ -78,6 +85,11 @@ dependencies {
     implementation 'com.github.bumptech.glide:glide:4.11.0'
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'
     implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+    // Pinned so the app and MockWebServer agree on an OkHttp version. Retrofit 2.9 would
+    // otherwise pull 3.14.9, and two OkHttp majors in one process breaks instrumentation.
+    implementation libs.okhttp
+    // Opens an article in a Custom Tab when its row is tapped.
+    implementation libs.androidx.browser
     implementation 'android.arch.lifecycle:extensions:1.1.1'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.5.1'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.5.1'
@@ -101,9 +113,11 @@ dependencies {
     androidTestImplementation libs.androidx.junit
     androidTestImplementation libs.androidx.espresso.core
     androidTestImplementation libs.androidx.espresso.contrib
+    androidTestImplementation libs.androidx.espresso.intents
     androidTestImplementation libs.androidx.test.runner
     androidTestImplementation libs.androidx.test.rules
     androidTestImplementation libs.okhttp.mockwebserver
     androidTestImplementation platform(libs.androidx.compose.bom)
     androidTestImplementation libs.androidx.ui.test.junit4
+    kaptAndroidTest "com.google.dagger:dagger-compiler:2.51.1"
 }

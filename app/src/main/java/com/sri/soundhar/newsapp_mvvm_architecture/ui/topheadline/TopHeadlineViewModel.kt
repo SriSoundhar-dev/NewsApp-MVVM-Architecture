@@ -19,8 +19,10 @@ class TopHeadlineViewModel(private val topHeadlineRepository: TopHeadlineReposit
         fetchNews()
     }
 
-    private fun fetchNews() {
+    /** Public so the error state's Retry button can ask for another attempt. */
+    fun fetchNews() {
         viewModelScope.launch {
+            _uiState.value = UiState.Loading
             topHeadlineRepository.getTopHeadlines(COUNTRY)
                 .catch { e ->
                     _uiState.value = UiState.Error(e.toString())

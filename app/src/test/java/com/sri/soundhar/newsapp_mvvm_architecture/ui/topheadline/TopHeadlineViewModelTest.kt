@@ -7,6 +7,7 @@ import com.sri.soundhar.newsapp_mvvm_architecture.ui.base.UiState
 import com.sri.soundhar.newsapp_mvvm_architecture.util.MainDispatcherRule
 import com.sri.soundhar.newsapp_mvvm_architecture.util.TestDataFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -78,8 +79,8 @@ class TopHeadlineViewModelTest {
 
         val state = viewModel.uiState.value
         assertTrue("Expected UiState.Error but was $state", state is UiState.Error)
-        // The ViewModel puts the raw `e.toString()` in the message, so the class name is
-        // part of it — and TopHeadlineActivity shows that string to the user in a Toast.
+        // The message keeps the raw `e.toString()` for logging. It is deliberately not what
+        // the user sees — TopHeadlineActivity renders fixed copy and a Retry button.
         assertEquals(
             "java.lang.RuntimeException: Network unavailable",
             (state as UiState.Error).message
@@ -109,6 +110,29 @@ class TopHeadlineViewModelTest {
         viewModel.uiState.test {
             assertEquals(UiState.Success(articles), awaitItem())
             expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `fetchNews shows Loading again and can succeed after a failure`() = runTest {
+        val articles = TestDataFactory.articles(count = 2)
+        whenever(repository.getTopHeadlines(any()))
+            .thenReturn(flow { throw RuntimeException("Network unavailable") })
+            // The delay gives the retry a real suspension point. Without one the ViewModel
+            // would set Loading and Success back to back, and the conflating StateFlow would
+            // only ever hand the collector the second one.
+            .thenReturn(flow { delay(100); emit(articles) })
+        val viewModel = TopHeadlineViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.uiState.test {
+            assertTrue(awaitItem() is UiState.Error)
+
+            viewModel.fetchNews()
+
+            assertEquals(UiState.Loading, awaitItem())
+            assertEquals(UiState.Success(articles), awaitItem())
+            cancelAndIgnoreRemainingEvents()
         }
     }
 

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-only. Instrumentation tests point the app at a MockWebServer on 127.0.0.1 over
+  plain HTTP, which API 28+ blocks by default. Release builds are unaffected.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application android:usesCleartextTraffic="true" />
+
+</manifest>

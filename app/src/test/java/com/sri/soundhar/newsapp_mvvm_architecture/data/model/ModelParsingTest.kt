@@ -46,29 +46,28 @@ class ModelParsingTest {
     }
 
     @Test
-    fun `an article with missing fields gets nulls rather than its declared defaults`() {
-        // Article.source has no default value, so Kotlin does NOT synthesise a no-arg
-        // constructor. Gson therefore allocates the instance through Unsafe, which skips the
-        // constructor entirely — so the `= ""` defaults on title/description/url/imageUrl
-        // never run either, and every absent field lands as null despite the non-null types.
+    fun `an article with missing fields falls back to its declared defaults`() {
+        // Every Article parameter now has a default, so Kotlin synthesises a no-arg
+        // constructor and Gson uses it instead of allocating through Unsafe. That is what
+        // makes the defaults below actually run — previously they were all skipped.
         val article = gson.fromJson("""{ "title": "Only a title" }""", Article::class.java)
 
         assertEquals("Only a title", article.title)
-        assertNull("description should have defaulted to \"\"", article.description)
-        assertNull("url should have defaulted to \"\"", article.url)
-        assertNull("imageUrl should have defaulted to \"\"", article.imageUrl)
+        assertEquals("", article.url)
+        assertNull(article.description)
+        assertNull(article.imageUrl)
+        assertNull(article.source)
     }
 
     @Test
-    fun `an article without a source parses but leaves source null`() {
-        // TopHeadlineAdapter.bind reads article.source.name unconditionally, so a payload
-        // shaped like this reaches the UI and throws an NPE at bind time rather than being
-        // rejected here.
-        val article = gson.fromJson("""{ "title": "No source" }""", Article::class.java)
+    fun `an article keeps explicit nulls from the payload`() {
+        // newsapi.org really does send these as null, rather than omitting them.
+        val json = """{ "title": "t", "description": null, "urlToImage": null, "source": null }"""
 
+        val article = gson.fromJson(json, Article::class.java)
+
+        assertNull(article.description)
+        assertNull(article.imageUrl)
         assertNull(article.source)
-
-        val npe = runCatching { article.source.name }.exceptionOrNull()
-        assertTrue("Expected an NPE from reading source.name, got $npe", npe is NullPointerException)
     }
 }
