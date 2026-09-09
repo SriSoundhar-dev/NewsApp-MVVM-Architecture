@@ -3,6 +3,7 @@ package com.sri.soundhar.newsapp_mvvm_architecture.ui.topheadline
 import android.net.Uri
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.sri.soundhar.newsapp_mvvm_architecture.data.model.Article
@@ -17,15 +18,17 @@ class TopHeadlineAdapter(
         RecyclerView.ViewHolder(binding.root) {
         fun bind(article: Article) {
             binding.textViewTitle.text = article.title
-            binding.textViewDescription.text = article.description
-            binding.textViewSource.text = article.source.name
+            binding.textViewDescription.text = article.description.orEmpty()
+            binding.textViewSource.text = article.source?.name.orEmpty()
             Glide.with(binding.imageViewBanner.context)
                 .load(article.imageUrl)
                 .into(binding.imageViewBanner)
             itemView.setOnClickListener {
-                /*val builder = CustomTabsIntent.Builder()
-                val customTabsIntent = builder.build()
-                customTabsIntent.launchUrl(it.context, Uri.parse(article.url))*/
+                if (article.url.isNotBlank()) {
+                    CustomTabsIntent.Builder()
+                        .build()
+                        .launchUrl(it.context, Uri.parse(article.url))
+                }
             }
         }
     }
@@ -42,7 +45,13 @@ class TopHeadlineAdapter(
 
     override fun onBindViewHolder(holder: DataViewHolder, position: Int) =
         holder.bind(articleList[position])
-    fun addData(list: List<Article>) {
+
+    /**
+     * Replaces the current articles. This must not append: the screen re-renders on every
+     * successful load, so appending would show the whole feed again on each refresh.
+     */
+    fun setData(list: List<Article>) {
+        articleList.clear()
         articleList.addAll(list)
     }
 }

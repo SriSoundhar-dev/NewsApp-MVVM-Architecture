@@ -64,8 +64,8 @@ class NetworkServiceTest {
         assertEquals("https://example.com/article/1", article.url)
         // `urlToImage` in the payload, `imageUrl` on the model.
         assertEquals("https://example.com/article/1.png", article.imageUrl)
-        assertEquals("The Verge", article.source.name)
-        assertEquals("the-verge", article.source.id)
+        assertEquals("The Verge", article.source?.name)
+        assertEquals("the-verge", article.source?.id)
     }
 
     @Test

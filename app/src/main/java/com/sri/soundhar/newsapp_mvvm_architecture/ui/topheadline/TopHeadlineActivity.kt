@@ -1,8 +1,8 @@
 package com.sri.soundhar.newsapp_mvvm_architecture.ui.topheadline
 
 import android.os.Bundle
+import android.util.Log
 import android.view.View
-import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -51,6 +51,7 @@ class TopHeadlineActivity : AppCompatActivity() {
             )
         )
         recyclerView.adapter = adapter
+        binding.buttonRetry.setOnClickListener { newsListViewModel.fetchNews() }
     }
     private fun setupObserver() {
         lifecycleScope.launch {
@@ -59,18 +60,22 @@ class TopHeadlineActivity : AppCompatActivity() {
                     when (it) {
                         is UiState.Success -> {
                             binding.progressBar.visibility = View.GONE
+                            binding.errorGroup.visibility = View.GONE
                             renderList(it.data)
                             binding.recyclerView.visibility = View.VISIBLE
                         }
                         is UiState.Loading -> {
                             binding.progressBar.visibility = View.VISIBLE
+                            binding.errorGroup.visibility = View.GONE
                             binding.recyclerView.visibility = View.GONE
                         }
                         is UiState.Error -> {
-                            //Handle Error
+                            // The state's message carries the raw exception for logs; the
+                            // user gets fixed copy and a way to try again.
+                            Log.w(TAG, "Could not load top headlines: ${it.message}")
                             binding.progressBar.visibility = View.GONE
-                            Toast.makeText(this@TopHeadlineActivity, it.message, Toast.LENGTH_LONG)
-                                .show()
+                            binding.recyclerView.visibility = View.GONE
+                            binding.errorGroup.visibility = View.VISIBLE
                         }
                     }
                 }
@@ -78,7 +83,7 @@ class TopHeadlineActivity : AppCompatActivity() {
         }
     }
     private fun renderList(articleList: List<Article>) {
-        adapter.addData(articleList)
+        adapter.setData(articleList)
         adapter.notifyDataSetChanged()
     }
 
@@ -86,5 +91,9 @@ class TopHeadlineActivity : AppCompatActivity() {
         DaggerActivityComponent.builder()
             .applicationComponent((application as NewsApplication).applicationComponent)
             .activityModule(ActivityModule(this)).build().inject(this)
+    }
+
+    private companion object {
+        const val TAG = "TopHeadlineActivity"
     }
 }

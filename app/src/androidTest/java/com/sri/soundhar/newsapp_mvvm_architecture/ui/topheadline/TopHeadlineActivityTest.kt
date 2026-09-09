@@ -1,6 +1,10 @@
 package com.sri.soundhar.newsapp_mvvm_architecture.ui.topheadline
 
+import android.app.Activity
+import android.app.Instrumentation
+import android.content.Intent
 import android.view.View
+import androidx.lifecycle.Lifecycle
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -10,6 +14,12 @@ import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.contrib.RecyclerViewActions.actionOnItemAtPosition
 import androidx.test.espresso.contrib.RecyclerViewActions.scrollToPosition
+import androidx.test.espresso.intent.Intents
+import androidx.test.espresso.intent.Intents.intended
+import androidx.test.espresso.intent.Intents.intending
+import androidx.test.espresso.intent.matcher.IntentMatchers.anyIntent
+import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
+import androidx.test.espresso.intent.matcher.IntentMatchers.hasData
 import androidx.test.espresso.matcher.ViewMatchers.hasDescendant
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withId
@@ -26,6 +36,7 @@ import com.sri.soundhar.newsapp_mvvm_architecture.util.atPosition
 import com.sri.soundhar.newsapp_mvvm_architecture.util.hasItemCount
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import org.hamcrest.CoreMatchers.allOf
 import org.hamcrest.CoreMatchers.not
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -155,32 +166,68 @@ class TopHeadlineActivityTest {
     }
 
     @Test
-    fun leavesTheScreenBlankWhenTheRequestFails() {
-        server.enqueue(
-            jsonResponse("{}", code = HttpURLConnection.HTTP_INTERNAL_ERROR)
-        )
+    fun showsAnErrorAndRetryWhenTheRequestFails() {
+        server.enqueue(jsonResponse("{}", code = HttpURLConnection.HTTP_INTERNAL_ERROR))
 
         launchScreen()
 
-        // Everything the user can still see. The only error feedback is a Toast, which is
-        // system-rendered from API 30 on and so invisible to Espresso — which is the point:
-        // on a failure this screen is blank, with no message in it and no way to retry.
         onView(withId(R.id.progressBar)).check(matches(not(isDisplayed())))
         onView(withId(R.id.recyclerView)).check(matches(not(isDisplayed())))
+        onView(withId(R.id.errorGroup)).check(matches(isDisplayed()))
+        onView(withId(R.id.textViewError)).check(matches(withText(R.string.error_loading_news)))
+        onView(withId(R.id.buttonRetry)).check(matches(isDisplayed()))
     }
 
     @Test
-    fun tappingAnArticleDoesNothing() {
-        server.enqueue(jsonResponse(TestDataFactory.topHeadlinesJson(articleCount = 3)))
+    fun retryingAfterAFailureLoadsTheArticles() {
+        server.enqueue(jsonResponse("{}", code = HttpURLConnection.HTTP_INTERNAL_ERROR))
         launchScreen()
+        onView(withId(R.id.buttonRetry)).check(matches(isDisplayed()))
 
-        onView(withId(R.id.recyclerView))
-            .perform(actionOnItemAtPosition<RecyclerView.ViewHolder>(0, click()))
+        server.enqueue(jsonResponse(TestDataFactory.topHeadlinesJson(articleCount = 3)))
+        onView(withId(R.id.buttonRetry)).perform(click())
 
-        // The Custom Tabs launch in TopHeadlineAdapter is commented out, so the tap is
-        // swallowed and the list is still sitting there. Update this once it opens the URL.
+        onView(withId(R.id.errorGroup)).check(matches(not(isDisplayed())))
         onView(withId(R.id.recyclerView)).check(matches(isDisplayed()))
         onView(withId(R.id.recyclerView)).check(matches(hasItemCount(3)))
+    }
+
+    @Test
+    fun returningToTheScreenDoesNotDuplicateTheFeed() {
+        server.enqueue(jsonResponse(TestDataFactory.topHeadlinesJson(articleCount = 3)))
+        val scenario = launchScreen()
+        onView(withId(R.id.recyclerView)).check(matches(hasItemCount(3)))
+
+        scenario.moveToState(Lifecycle.State.CREATED)
+        scenario.moveToState(Lifecycle.State.RESUMED)
+
+        // repeatOnLifecycle re-collects on the way back and the StateFlow replays the
+        // current Success, so the same articles are rendered a second time. While the
+        // adapter appended, this is exactly where the feed doubled.
+        onView(withId(R.id.recyclerView)).check(matches(hasItemCount(3)))
+    }
+
+    @Test
+    fun tappingAnArticleOpensItsUrl() {
+        server.enqueue(jsonResponse(TestDataFactory.topHeadlinesJson(articleCount = 3)))
+        launchScreen()
+        onView(withId(R.id.recyclerView)).check(matches(isDisplayed()))
+
+        Intents.init()
+        try {
+            // Stubbed so the Custom Tab is recorded but no browser actually opens.
+            intending(anyIntent())
+                .respondWith(Instrumentation.ActivityResult(Activity.RESULT_OK, null))
+
+            onView(withId(R.id.recyclerView))
+                .perform(actionOnItemAtPosition<RecyclerView.ViewHolder>(0, click()))
+
+            intended(
+                allOf(hasAction(Intent.ACTION_VIEW), hasData("https://example.com/article/1"))
+            )
+        } finally {
+            Intents.release()
+        }
     }
 
     private fun launchScreen(): ActivityScenario<TopHeadlineActivity> =
