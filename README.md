@@ -1,5 +1,7 @@
 # NewsApp — MVVM Architecture
 
+[![CI](https://github.com/SriSoundhar-dev/NewsApp-MVVM-Architecture/actions/workflows/ci.yml/badge.svg)](https://github.com/SriSoundhar-dev/NewsApp-MVVM-Architecture/actions/workflows/ci.yml)
+
 A small Android sample app that shows the **top news headlines** for a country using the
 [NewsAPI](https://newsapi.org/) `top-headlines` endpoint. It is written entirely in **Kotlin**
 and demonstrates a clean **MVVM + Repository** setup with Dagger 2, Retrofit, Coroutines and Flow.
@@ -13,7 +15,8 @@ and demonstrates a clean **MVVM + Repository** setup with Dagger 2, Retrofit, Co
 - Fetches top headlines from NewsAPI on startup
 - List of articles with banner image, title, description and source name
 - Explicit `Loading` / `Success` / `Error` UI states
-- Errors surfaced to the user via a `Toast`
+- A failed load shows an inline message with a **Retry** button
+- Tapping an article opens it in a Chrome Custom Tab
 
 ## Tech stack
 
@@ -26,6 +29,8 @@ and demonstrates a clean **MVVM + Repository** setup with Dagger 2, Retrofit, Co
 | Image loading      | Glide |
 | UI                 | Android Views + ViewBinding, `RecyclerView` |
 | Lifecycle          | `ViewModel`, `viewModelScope`, `repeatOnLifecycle` |
+| Testing            | JUnit 4, Mockito, Turbine, MockWebServer, Robolectric, Espresso |
+| Coverage           | JaCoCo (unit + instrumentation, merged) |
 | Min / target SDK   | 24 / 34 |
 
 ## Architecture
@@ -71,6 +76,11 @@ app/src/main/java/com/sri/soundhar/newsapp_mvvm_architecture/
 │   ├── base/                       # UiState, ViewModelProviderFactory
 │   └── topheadline/                # Activity, ViewModel, RecyclerView adapter
 └── uitils/AppConstant.kt           # API key + country code
+
+app/src/
+├── test/          # JVM unit tests (models, network, repository, ViewModel, adapter)
+├── androidTest/   # Espresso screen tests + the Dagger graph that points them at MockWebServer
+└── sharedTest/    # fixtures used by both suites
 ```
 
 ## Requirements
@@ -112,15 +122,47 @@ app/src/main/java/com/sri/soundhar/newsapp_mvvm_architecture/
 
 The APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 
+## Testing
+
+50 tests across two suites.
+
+| Suite | Location | Covers |
+|-------|----------|--------|
+| JVM unit tests (40) | `app/src/test` | Gson parsing, `NetworkService` against MockWebServer, the repository, the ViewModel, `UiState`, and the RecyclerView adapter under Robolectric |
+| Instrumentation (10) | `app/src/androidTest` | the Top Headlines screen end to end, driven by Espresso |
+
+```bash
+# JVM suite — no device needed
+./gradlew testDebugUnitTest
+
+# Espresso suite — needs a running emulator or a connected device
+./gradlew connectedDebugAndroidTest
+
+# Both, then a merged coverage report
+./gradlew testDebugUnitTest connectedDebugAndroidTest jacocoTestReport
+```
+
+Coverage is written to `app/build/reports/jacoco/jacocoTestReport/html/index.html` and currently
+sits at **91% of lines**. The report merges both suites on purpose: `TopHeadlineActivity` is only
+reachable from Espresso and `TopHeadlineViewModel` only from the JVM tests, so a report over
+either suite alone paints a misleading picture.
+
+### How the Espresso tests avoid the network
+
+`NewsTestRunner` installs a `TestNewsApplication` whose Dagger graph points Retrofit at a
+`MockWebServer` on `127.0.0.1:8080` rather than newsapi.org. The instrumentation suite therefore
+needs no API key and no internet, and can exercise the loading, empty and failure states on
+demand. A debug-only manifest permits cleartext traffic to localhost for this; release builds are
+unaffected.
+
 ## Roadmap
 
 Things the architecture is set up for but that are not implemented yet:
 
 - Offline caching / single-source-of-truth with Room (DB first, then network refresh)
-- Article detail — opening `article.url` in a Chrome Custom Tab (the click handler in
-  `TopHeadlineAdapter` is stubbed out)
-- Pull-to-refresh and manual retry on error
-- Unit tests for the ViewModel and repository, instrumented tests for the list screen
+- Pull-to-refresh on the list (manual retry after a failure is implemented)
+- Telling "you are offline" apart from "the server failed" — the repository passes the raw
+  exception straight through, so both reach the user as the same message
 - Migrate the hard-coded API key to `local.properties` / `BuildConfig`
 
 ## Notes
