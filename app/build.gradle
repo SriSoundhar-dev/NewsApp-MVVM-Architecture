@@ -2,6 +2,11 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.jetbrainsKotlinAndroid)
     id 'kotlin-kapt'
+    id 'jacoco'
+}
+
+jacoco {
+    toolVersion = '0.8.12'
 }
 
 android {
@@ -29,6 +34,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Emit coverage data from both suites so jacocoTestReport can merge them.
+            enableUnitTestCoverage true
+            enableAndroidTestCoverage true
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -120,4 +130,40 @@ dependencies {
     androidTestImplementation platform(libs.androidx.compose.bom)
     androidTestImplementation libs.androidx.ui.test.junit4
     kaptAndroidTest "com.google.dagger:dagger-compiler:2.51.1"
+}
+
+/**
+ * One coverage report spanning both suites. The Activity is only reachable from Espresso and
+ * the ViewModel only from the JVM tests, so a report over either alone is misleading.
+ *
+ *   ./gradlew testDebugUnitTest connectedDebugAndroidTest jacocoTestReport
+ *
+ * Running it alone covers the JVM suite only.
+ */
+tasks.register('jacocoTestReport', JacocoReport) {
+    group = 'verification'
+    description = 'Merges unit and instrumentation coverage into a single report.'
+
+    dependsOn 'testDebugUnitTest'
+    mustRunAfter 'connectedDebugAndroidTest'
+
+    reports {
+        html.required = true
+        xml.required = true
+    }
+
+    // Generated code the tests are not answerable for.
+    def generated = [
+            '**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/Manifest*.*',
+            '**/Dagger*.*', '**/*_Factory.*', '**/*_MembersInjector.*',
+            '**/*Module_*.*', '**/databinding/**', '**/*Binding.*',
+    ]
+    def buildDirectory = layout.buildDirectory.get().asFile
+    classDirectories.setFrom(files([
+            fileTree(dir: "$buildDirectory/tmp/kotlin-classes/debug", excludes: generated),
+            fileTree(dir: "$buildDirectory/intermediates/javac/debug/classes", excludes: generated),
+    ]))
+    sourceDirectories.setFrom(files(['src/main/java']))
+    // .exec from the JVM suite, .ec pulled off the device by the instrumentation suite.
+    executionData.setFrom(fileTree(dir: buildDirectory, includes: ['**/*.exec', '**/*.ec']))
 }
