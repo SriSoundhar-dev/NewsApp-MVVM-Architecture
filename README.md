@@ -75,7 +75,7 @@ app/src/main/java/com/sri/soundhar/newsapp_mvvm_architecture/
 ├── ui/
 │   ├── base/                       # UiState, ViewModelProviderFactory
 │   └── topheadline/                # Activity, ViewModel, RecyclerView adapter
-└── uitils/AppConstant.kt           # API key + country code
+└── uitils/AppConstant.kt           # country code + the key, read from BuildConfig
 
 app/src/
 ├── test/          # JVM unit tests (models, network, repository, ViewModel, adapter)
@@ -99,16 +99,22 @@ app/src/
    ```bash
    git clone https://github.com/SriSoundhar-dev/NewsApp-MVVM-Architecture.git
    ```
-2. **Add a NewsAPI key.** Create a free key at [newsapi.org](https://newsapi.org/register) and set
-   it in [`AppConstant.kt`](app/src/main/java/com/sri/soundhar/newsapp_mvvm_architecture/uitils/AppConstant.kt):
-   ```kotlin
-   object AppConstant {
-       const val API_KEY = "YOUR_API_KEY"
-       const val COUNTRY = "us"   // any ISO 3166-1 code NewsAPI supports
-   }
+2. **Add a NewsAPI key.** Create a free key at [newsapi.org](https://newsapi.org/register) and put
+   it in `local.properties`, which is gitignored and never committed:
+   ```properties
+   NEWS_API_KEY=your_key_here
    ```
-   > The key currently checked in is a shared demo key on the free tier and may be rate-limited or
-   > revoked at any time — use your own.
+   The build exposes it as `BuildConfig.NEWS_API_KEY`, and `AppConstant.API_KEY` reads from there.
+   CI can supply a `NEWS_API_KEY` environment variable instead; `local.properties` wins if both
+   are set.
+
+   Without a key the project still builds and both test suites still pass — neither suite calls
+   NewsAPI — but the running app gets a 401 on every request. Gradle prints a warning at
+   configuration time to say so.
+
+   The country lives in
+   [`AppConstant.kt`](app/src/main/java/com/sri/soundhar/newsapp_mvvm_architecture/uitils/AppConstant.kt)
+   and takes any ISO 3166-1 code NewsAPI supports.
 3. **Run** from Android Studio (Run ▶) or install a debug build from the command line:
    ```bash
    ./gradlew installDebug
@@ -163,7 +169,7 @@ Things the architecture is set up for but that are not implemented yet:
 - Pull-to-refresh on the list (manual retry after a failure is implemented)
 - Telling "you are offline" apart from "the server failed" — the repository passes the raw
   exception straight through, so both reach the user as the same message
-- Migrate the hard-coded API key to `local.properties` / `BuildConfig`
+- Swap `notifyDataSetChanged()` for `ListAdapter`/`DiffUtil` to get item-level animations
 
 ## Notes
 
