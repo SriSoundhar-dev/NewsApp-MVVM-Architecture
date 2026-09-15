@@ -9,6 +9,23 @@ jacoco {
     toolVersion = '0.8.12'
 }
 
+// The NewsAPI key is not checked in. Developers put it in local.properties (gitignored);
+// CI injects it through the environment. A missing key still builds, so a fresh clone and
+// the test suites work without one — NewsAPI simply answers 401 at runtime.
+def newsApiKey = {
+    def properties = new Properties()
+    def file = rootProject.file('local.properties')
+    if (file.exists()) {
+        file.withInputStream { properties.load(it) }
+    }
+    return properties.getProperty('NEWS_API_KEY') ?: System.getenv('NEWS_API_KEY') ?: ''
+}()
+
+if (!newsApiKey) {
+    logger.lifecycle('NEWS_API_KEY is not set in local.properties or the environment. ' +
+            'The app will build, but NewsAPI will reject its requests with 401. See the README.')
+}
+
 android {
     namespace 'com.sri.soundhar.newsapp_mvvm_architecture'
     compileSdk 34
@@ -21,6 +38,7 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "com.sri.soundhar.newsapp_mvvm_architecture.NewsTestRunner"
+        buildConfigField 'String', 'NEWS_API_KEY', "\"${newsApiKey}\""
         vectorDrawables {
             useSupportLibrary true
         }
@@ -56,6 +74,7 @@ android {
     buildFeatures {
         viewBinding true
         compose true
+        buildConfig true
     }
     composeOptions {
         kotlinCompilerExtensionVersion '1.5.10'
